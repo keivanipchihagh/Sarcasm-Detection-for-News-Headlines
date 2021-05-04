@@ -1,15 +1,14 @@
 import json
+import numpy as np
 import tensorflow as tf
 import keras
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
+from matplotlib import pyplot as plt
 
 
-def parse_data(file):
-    for l in open(file,'r'):
-        yield json.loads(l)
-
-data = list(parse_data('datasets/Sarcasm_Headlines_Dataset.json'))
+with open("Datasets/sarcasm.json", 'r') as f:
+    dataset = json.load(f)
 
 print('Data Sample:', data[0])
 
@@ -19,6 +18,7 @@ vocab_size = 10000
 max_len = 100
 padding_type = 'post'
 truncating_type = 'post'
+embedding_dim = 16
 
 
 headlines = []
@@ -53,8 +53,58 @@ training_data_padded = pad_sequences(training_sequences, maxlen = max_len, paddi
 testing_sequences = tokenizer.texts_to_sequences(testing_data)
 testing_data_padded = pad_sequences(testing_sequences, maxlen = max_len, padding = padding_type, truncating = truncating_type)
 
+# Convert lists to tensors
+training_labels = np.array(training_labels)
+testing_labels = np.array(testing_labels)
+
+
 # Sequence sample
 print(training_sequences[:3])
+
+
+# Define model structure
+model = keras.models.Sequential()
+
+# Define Layers
+model.add(keras.layers.Embedding(vocab_size, embedding_dim, input_length = max_len))
+model.add(keras.layers.GlobalAveragePooling1D())
+model.add(keras.layers.Dense(units = 24, activation = 'relu'))
+model.add(keras.layers.Dense(units = 1, activation = 'sigmoid'))
+
+# Compile Model
+model.compile(loss = 'binary_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
+
+# Model summary
+model.summary()
+
+
+epochs = 30
+history = model.fit(x = training_data_padded, y = training_labels, epochs = epochs, validation_data = (testing_data_padded, testing_labels))
+
+
+def plot(history, metric):
+    plt.plot([i for i in range(epochs)], history.history[metric], label = metric)
+    plt.plot([i for i in range(epochs)], history.history['val_' + metric], label = 'Validation ' + metric)
+    plt.xlabel('Epochs')
+    plt.ylabel(metric)
+    plt.legend()
+    plt.show()
+    
+plot(history, 'loss')
+plot(history, 'accuracy')
+
+
+sentence = ["granny starting to fear spiders in the garden might be real", "game of thrones season finale showing this sunday night"]
+
+# Tokenize and pad sentences
+sequences = tokenizer.texts_to_sequences(sentence)
+sentences_padded = pad_sequences(sequences, maxlen = max_len, padding = padding_type, truncating = truncating_type)
+
+# Predict
+print(model.predict(sentences_padded))
+
+
+
 
 
 
